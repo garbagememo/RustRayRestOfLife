@@ -233,22 +233,26 @@ impl ShapeList {
 
         //light
         self.push(Box::new(
-            Rect::new(
+            FlipFace::new(Box::new(
+                Rect::new(
                     213.0, 343.0, 227.0, 332.0, 554.0,RectAxisType::XZ,
                     Arc::new(
-                            DiffuseLight::new(Box::new(ColorTexture::new(
-                                Vec3::new(15.0, 15.0, 15.0,))))
+                        DiffuseLight::new(Box::new(ColorTexture::new(
+                            Vec3::new(15.0, 15.0, 15.0,))))
                     ),
-            )
+                )
+            ))
         ));
         
         self.push(Box::new(
-            Rect::new(
-                0.0, 555.0, 0.0, 555.0, 555.0,RectAxisType::YZ,
-                Arc::new(
-                    Lambertian::new(Box::new(ColorTexture::new(green)))
+            FlipFace::new(Box::new(
+                Rect::new(
+                    0.0, 555.0, 0.0, 555.0, 555.0,RectAxisType::YZ,
+                    Arc::new(
+                        Lambertian::new(Box::new(ColorTexture::new(green)))
+                    )
                 )
-                )
+                    ))
         ));
         
         self.push(Box::new(
@@ -261,12 +265,14 @@ impl ShapeList {
         ));
         
         self.push(Box::new(
-            Rect::new(
-                0.0, 555.0, 0.0, 555.0, 555.0,RectAxisType::XZ,
-                Arc::new(
-                    Lambertian::new(Box::new(ColorTexture::new(white)))
+            FlipFace::new(Box::new(
+                Rect::new(
+                    0.0, 555.0, 0.0, 555.0, 555.0,RectAxisType::XZ,
+                    Arc::new(
+                        Lambertian::new(Box::new(ColorTexture::new(white)))
+                    )
                 )
-                )
+            ))
         ));
         self.push(Box::new(
             Rect::new(
@@ -274,18 +280,21 @@ impl ShapeList {
                 Arc::new(
                     Lambertian::new(Box::new(ColorTexture::new(white)))
                 )
-                )
+            )
         ));
         self.push(Box::new(
-            Rect::new(
-                0.0, 555.0, 0.0, 555.0, 555.0,RectAxisType::XY,
-                Arc::new(
-                    Lambertian::new(Box::new(ColorTexture::new(white)))
+            FlipFace::new(Box::new(
+                Rect::new(
+                    0.0, 555.0, 0.0, 555.0, 555.0,RectAxisType::XY,
+                    Arc::new(
+                        Lambertian::new(Box::new(ColorTexture::new(white)))
+                    )
                 )
-                )
+            ))
         ));
-        
+
         let mut box_list1: Vec<Box<dyn Shape>> = Vec::new();
+      
         box_list1.push(Box::new(
             Translate::new(Box::new(
                 Rotate::new(Box::new(

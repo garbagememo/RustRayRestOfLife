@@ -33,10 +33,35 @@ impl HitInfo {
     }
 }
 
+
+
 pub trait Shape: Sync {
     fn hit(&self, ray: &Ray, t0: f64, t1: f64) -> Option<HitInfo>;
     fn bounding_box(&self) -> Option<AABB>;
 }
+
+//法線逆転用
+pub struct FlipFace {
+    pub shape: Box<dyn Shape>,
+}
+impl FlipFace {
+    pub fn new(shape: Box<dyn Shape>) -> Self {
+        Self { shape }
+    }
+}
+impl Shape for FlipFace {
+    fn hit(&self, ray: &Ray, t0: f64, t1: f64) -> Option<HitInfo> {
+        if let Some(hit) = self.shape.hit(ray, t0, t1) {
+            Some(HitInfo { n: -hit.n, ..hit })
+        } else {
+            None
+        }
+    }
+    fn bounding_box(&self) -> Option<AABB> {
+        self.shape.bounding_box() 
+    }
+}
+
 
 pub struct Sphere {
     pub center: Vec3,
@@ -146,7 +171,7 @@ impl Shape for Rect {
         if x < self.x0 || x > self.x1 || y < self.y0 || y > self.y1 {
             return None;
         }
-        if ray.d.dot(&axis)>0.0 {axis = -axis};
+
         Some(HitInfo::new(
             t,
             ray.at(t),
@@ -190,11 +215,23 @@ impl RectAngle {
         let p_max=Vec3::new(a.x.max(b.x),a.y.max(b.y),a.z.max(b.z));
         let mut shapes = ShapeList::new();
         shapes.push(Box::new(Rect::new(p_min.x,p_max.x,p_min.y,p_max.y,p_max.z,RectAxisType::XY,Arc::clone(&material)) ));
-        shapes.push(Box::new(Rect::new(p_min.x,p_max.x,p_min.y,p_max.y,p_min.z,RectAxisType::XY,Arc::clone(&material)) ));
+        shapes.push(Box::new(
+            FlipFace::new(Box::new(
+                Rect::new(p_min.x,p_max.x,p_min.y,p_max.y,p_min.z,RectAxisType::XY,Arc::clone(&material))
+            ))
+        ));
         shapes.push(Box::new(Rect::new(p_min.x,p_max.x,p_min.z,p_max.z,p_max.y,RectAxisType::XZ,Arc::clone(&material)) ));
-        shapes.push(Box::new(Rect::new(p_min.x,p_max.x,p_min.z,p_max.z,p_min.y,RectAxisType::XZ,Arc::clone(&material)) ));
-        shapes.push(Box::new(Rect::new(p_min.y,p_max.y,p_min.z,p_max.z,p_min.x,RectAxisType::YZ,Arc::clone(&material)) ));
-        shapes.push(Box::new(Rect::new(p_min.y,p_max.y,p_min.z,p_max.z,p_min.x,RectAxisType::YZ,Arc::clone(&material)) ));
+        shapes.push(Box::new(
+            FlipFace::new(Box::new(
+                Rect::new(p_min.x,p_max.x,p_min.z,p_max.z,p_min.y,RectAxisType::XZ,Arc::clone(&material))
+            ))
+        ));
+        shapes.push(Box::new(Rect::new(p_min.y,p_max.y,p_min.z,p_max.z,p_max.x,RectAxisType::YZ,Arc::clone(&material)) ));
+        shapes.push(Box::new(
+            FlipFace::new(Box::new(
+                Rect::new(p_min.y,p_max.y,p_min.z,p_max.z,p_min.x,RectAxisType::YZ,Arc::clone(&material))
+            ))
+        ));
         Self { p_min,p_max,shapes}
     }
 }
