@@ -18,15 +18,13 @@ fn ray_color(r: &Ray, world: &dyn Shape, depth: i64, background: Vec3) -> Vec3 {
         let scatter_info = hit.m.scatter(r, &hit);
         if let Some(scatter) = scatter_info {
             let pdf = MixturePdf::new(
-                Box::new(
-                    ShapePdf::new(
-                        Rect::new(
-                            213.0, 343.0, 227.0, 332.0, 554.0,RectAxisType::XZ,
-                            Arc::new(
-                                Lambertian::new(Box::new(ColorTexture::new(Vec3::zero())))
-                            ),
-                        )
-                    ),hit.p),
+                Box::new(ShapePdf::new(
+                    Box::new(Rect::new(
+                                 213.0, 343.0, 227.0, 332.0, 554.0,RectAxisType::XZ,
+                                 Arc::new(Lambertian::new(Box::new(ColorTexture::new(Vec3::zero()))))
+                        )),
+                    hit.p,
+                )),
                 Box::new(CosinePdf::new()));
             let new_ray = Ray::new(hit.p,pdf.generate(&hit));
             let spdf_value = pdf.value(&hit,new_ray.d);
