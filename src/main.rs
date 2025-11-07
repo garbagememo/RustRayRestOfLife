@@ -15,10 +15,10 @@ fn ray_color(r: &Ray, world: &dyn Shape, depth: i64, background: Vec3) -> Vec3 {
         let emitted = hit.m.emitted(&r, &hit);
         let scatter_info = hit.m.scatter(r, &hit);
         if let Some(scatter) = scatter_info {
-            let pdf_value = hit.m.scattering_pdf(&scatter.ray, &hit);
-            let albedo = scatter.albedo * pdf_value;
-            emitted+
-                albedo.mult(ray_color(&scatter.ray, world, depth - 1, background)) /pdf_value
+            emitted
+                + scatter
+                    .albedo
+                    .mult(ray_color(&scatter.ray, world, depth - 1, background))
         } else {
             return emitted;
         }
