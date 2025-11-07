@@ -1,5 +1,5 @@
 use crate::raymod::*;
-pub use std::f64::consts::FRAC_1_PI;
+pub use std::f64::consts::*;
 
 #[allow(unused)]
 pub trait Material: Sync + Send {
@@ -138,11 +138,11 @@ impl Lambertian {
 
 impl Material for Lambertian {
     fn scatter(&self, ray: &Ray, hit: &HitInfo) -> Option<ScatterInfo> {
-        let target = hit.p + hit.n + Vec3::random_hemisphere();
-        let new_ray = Ray::new(hit.p, target - hit.p);
+        let direction = ONB::new(hit.n).local(Vec3::random_cosine_direction()) ;
+        let new_ray = Ray::new(hit.p, direction.norm() );
         let albedo = self.albedo.value(hit.u, hit.v, hit.p);
         let pdf_value = new_ray.d.dot(&hit.n) * FRAC_1_PI;
-        Some(ScatterInfo::new(Ray::new(hit.p, target - hit.p), albedo,pdf_value))
+        Some(ScatterInfo::new(new_ray, albedo,pdf_value))
     }
     fn scattering_pdf(&self, ray: &Ray, hit: &HitInfo) -> f64 {
         ray.d.norm().dot(&hit.n).max(0.0) * FRAC_1_PI
