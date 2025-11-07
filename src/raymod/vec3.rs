@@ -2,9 +2,6 @@ use std::fs;
 use std::io::Write;
 use std::ops::{Add, Div, Mul, Neg, Rem, Sub};
 use std::ops::{Index, IndexMut};
-pub use std::f64::consts::*;
-
-const PI2:f64 = PI*PI;
 
 pub fn random() -> f64 {
     rand::random::<f64>()
@@ -83,14 +80,6 @@ impl Vec3 {
             }
         }
     }
-    pub fn random_cosine_direction() -> Self {
-        let r1 =random(); let r2=random();
-        let z = (1.0 - r2).sqrt();
-        let (x, y) = (PI2 * r1).sin_cos();
-        let r2sqrt = r2.sqrt();
-        Self::new(x * r2sqrt, y * r2sqrt, z)
-    }
-    
     pub fn reflect(&self, normal: Vec3) -> Vec3 {
         *self - normal * 2.0 * self.dot(&normal)
     }
@@ -193,31 +182,6 @@ impl IndexMut<usize> for Vec3 {
         }
     }
 }
-
-pub struct ONB {
-    axis: [Vec3; 3],
-}
-impl ONB {
-    pub fn new(n: Vec3) -> Self {
-        let w = n.norm();
-        let v = if w.x.abs() > 0.9 {
-            w % (Vec3::yaxis()).norm()
-        } else {
-            w % (Vec3::xaxis()).norm()
-        };
-        let u = w % v;
-        Self { axis: [u, v, w] }
-    }
-    pub fn u(&self) -> Vec3 { self.axis[0] }
-    pub fn v(&self) -> Vec3 { self.axis[1] }
-    pub fn w(&self) -> Vec3 { self.axis[2] }
-    pub fn local(&self, v: Vec3) -> Vec3 {
-        self.axis[0] * v.x + self.axis[1] * v.y + self.axis[2] * v.z
-    }
-}
-
-
-
 
 fn clamp(x: f64) -> f64 {
     if x < 0.0 {

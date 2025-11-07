@@ -19,7 +19,7 @@ impl Camera {
         lookat: Vec3,
         vup: Vec3,
         vfov: f64,
-        aspect_ratio: f64,//このアスペクト比16:9は固定
+        aspect_ratio: f64,
         aperture: f64,
         focus_dist: f64,
     ) -> Camera {

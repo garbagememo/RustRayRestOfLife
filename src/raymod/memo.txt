@@ -1,0 +1,62 @@
+use std::ops::{Index, IndexMut};
+
+// 3次元座標を表現する構造体
+pub struct Position {
+    pub x: f64,
+    pub y: f64,
+    pub z: f64,
+}
+
+// ----------------------------------------------------
+// 読み取りアクセス (pos[i]) を可能にする実装
+// ----------------------------------------------------
+impl Index<usize> for Position {
+    // 参照が返す型を指定
+    type Output = f64;
+
+    // インデックス i に対応するフィールドの参照を返す
+    fn index(&self, i: usize) -> &Self::Output {
+        match i {
+            0 => &self.x,
+            1 => &self.y,
+            2 => &self.z,
+            _ => panic!("Index out of bounds: {}", i), // 範囲外のインデックスはパニック
+        }
+    }
+}
+
+// ----------------------------------------------------
+// 書き込みアクセス (pos[i] = value) を可能にする実装
+// ----------------------------------------------------
+impl IndexMut<usize> for Position {
+    // インデックス i に対応するフィールドの可変参照を返す
+    fn index_mut(&mut self, i: usize) -> &mut Self::Output {
+        match i {
+            0 => &mut self.x,
+            1 => &mut self.y,
+            2 => &mut self.z,
+            _ => panic!("Index out of bounds: {}", i),
+        }
+    }
+}
+
+// ----------------------------------------------------
+// 使用例
+// ----------------------------------------------------
+fn main() {
+    let mut pos = Position { x: 1.0, y: 2.0, z: 3.0 };
+
+    // 1. 名前付きフィールドでアクセス (通常通り)
+    println!("X: {}", pos.x); 
+    
+    // 2. インデックスでアクセス (Indexトレイトのおかげ)
+    println!("pos[1]: {}", pos[1]); // => 2.0
+
+    // 3. インデックスで値を変更 (IndexMutトレイトのおかげ)
+    pos[2] = 99.9;
+    
+    println!("Z (pos[2]を変更後): {}", pos.z); // => 99.9
+
+    // 範囲外のアクセスはパニック
+    // pos[3]; 
+}
