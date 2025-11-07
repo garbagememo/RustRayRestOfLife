@@ -19,7 +19,7 @@ impl Camera {
         lookat: Vec3,
         vup: Vec3,
         vfov: f64,
-        aspect_ratio: f64,
+        aspect_ratio: f64,//このアスペクト比16:9は固定
         aperture: f64,
         focus_dist: f64,
     ) -> Camera {
@@ -234,14 +234,14 @@ impl ShapeList {
         //light
         self.push(Box::new(
             FlipFace::new(Box::new(
-                Rect::new(
+            Rect::new(
                     213.0, 343.0, 227.0, 332.0, 554.0,RectAxisType::XZ,
                     Arc::new(
-                        DiffuseLight::new(Box::new(ColorTexture::new(
-                            Vec3::new(15.0, 15.0, 15.0,))))
+                            DiffuseLight::new(Box::new(ColorTexture::new(
+                                Vec3::new(15.0, 15.0, 15.0,))))
                     ),
-                )
-            ))
+            )
+                    ))
         ));
         
         self.push(Box::new(
@@ -323,6 +323,7 @@ impl ShapeList {
             ),Vec3::new(265.0, 0.0, 295.0) )    
         ));
         self.push(Box::new(BVH::new(box_list1)));
+
         
         // simple_scene用カメラ
         let lookfrom = Vec3::new(278.0, 278.0, -800.0);

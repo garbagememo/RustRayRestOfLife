@@ -1,11 +1,11 @@
 use crate::raymod::*;
+pub use std::f64::consts::*;
 
 #[allow(unused)]
 pub trait Material: Sync + Send {
     fn scatter(&self, ray: &Ray, hit: &HitInfo) -> Option<ScatterInfo>;
-    fn emitted(&self, ray: &Ray, hit: &HitInfo) -> Color {
-        Color::zero()
-    }
+    fn emitted(&self, ray: &Ray, hit: &HitInfo) -> Color {Color::zero()}
+    fn scattering_pdf(&self, _ray: &Ray, _hit: &HitInfo) -> f64 { 0.0 }
 }
 
 pub trait Texture: Sync + Send {
@@ -112,18 +112,23 @@ impl Material for DiffuseLight {
         None
     }
     fn emitted(&self, ray: &Ray, hit: &HitInfo) -> Color {
-        self.emit.value(hit.u, hit.v, hit.p)
+        if ray.d.dot(&hit.n) < 0.0 {
+            self.emit.value(hit.u, hit.v, hit.p)
+        } else {
+            Vec3::zero()
+        }
     }
 }
 
 pub struct ScatterInfo {
     pub ray: Ray,
     pub albedo: Color,
+    pub pdf_value:f64,
 }
 
 impl ScatterInfo {
-    pub fn new(ray: Ray, albedo: Vec3) -> Self {
-        Self { ray, albedo }
+    pub fn new(ray: Ray, albedo: Vec3,pdf_value:f64) -> Self {
+        Self { ray, albedo, pdf_value }
     }
 }
 pub struct Lambertian {
@@ -137,9 +142,14 @@ impl Lambertian {
 
 impl Material for Lambertian {
     fn scatter(&self, ray: &Ray, hit: &HitInfo) -> Option<ScatterInfo> {
-        let target = hit.p + hit.n + Vec3::random_hemisphere();
+        let direction = ONB::new(hit.n).local(Vec3::random_cosine_direction()) ;
+        let new_ray = Ray::new(hit.p, direction.norm() );
         let albedo = self.albedo.value(hit.u, hit.v, hit.p);
-        Some(ScatterInfo::new(Ray::new(hit.p, target - hit.p), albedo))
+        let pdf_value = new_ray.d.dot(&hit.n) * FRAC_1_PI;
+        Some(ScatterInfo::new(new_ray, albedo,pdf_value))
+    }
+    fn scattering_pdf(&self, ray: &Ray, hit: &HitInfo) -> f64 {
+        ray.d.norm().dot(&hit.n).max(0.0) * FRAC_1_PI
     }
 }
 
@@ -159,7 +169,7 @@ impl Material for Metal {
         reflected = reflected + self.fuzz*Vec3::random_hemisphere() ;
         if reflected.dot(&hit.n) > 0.0 {
             let albedo = self.albedo.value(hit.u, hit.v, hit.p);
-            Some(ScatterInfo::new(Ray::new(hit.p, reflected), albedo))
+            Some(ScatterInfo::new(Ray::new(hit.p, reflected), albedo,0.0))
         } else {
             None
         }
@@ -200,12 +210,14 @@ impl Material for Dielectric {
                 return Some(ScatterInfo::new(
                     Ray::new(hit.p, refracted),
                     Vec3::new(1.0, 1.0, 1.0),
+                    0.0,
                 ));
             }
         }
         Some(ScatterInfo::new(
             Ray::new(hit.p, reflected),
             Vec3::new(1.0, 1.0, 1.0),
+            0.0,
         ))
     }
 }

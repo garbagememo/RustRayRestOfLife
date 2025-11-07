@@ -34,12 +34,81 @@ impl HitInfo {
 }
 
 
+pub trait Pdf {
+    fn value(&self, hit: &HitInfo, direction: Vec3) -> f64;
+    fn generate(&self, hit: &HitInfo) -> Vec3;
+}
+
+pub struct CosinePdf {}
+
+impl CosinePdf {
+    pub const fn new() -> Self {
+        Self {}
+    }
+}
+
+impl Pdf for CosinePdf {
+    fn value(&self, hit: &HitInfo, direction: Vec3) -> f64 {
+        let cosine = direction.norm().dot(&hit.n);
+        if cosine > 0.0 {
+            cosine * FRAC_1_PI
+        } else {
+            0.0
+        }
+    }
+    fn generate(&self, hit: &HitInfo) -> Vec3 {
+        ONB::new(hit.n).local(Vec3::random_cosine_direction())
+    }
+}
+
+pub struct MixturePdf {
+    pub pdfs: [Box<dyn Pdf>; 2],
+}
+impl MixturePdf {
+    pub fn new(pdf0: Box<dyn Pdf>, pdf1: Box<dyn Pdf>) -> Self {
+        Self { pdfs: [pdf0, pdf1] }
+    }
+}
+impl Pdf for MixturePdf {
+    fn value(&self, hit: &HitInfo, direction: Vec3) -> f64 {
+        let pdf0 = self.pdfs[0].value(&hit, direction);
+        let pdf1 = self.pdfs[1].value(&hit, direction);
+        0.5 * pdf0 + 0.5 * pdf1
+    }
+    fn generate(&self, hit: &HitInfo) -> Vec3 {
+        if random() < 0.5 {
+            self.pdfs[0].generate(hit)
+        } else {
+            self.pdfs[1].generate(hit)
+        }
+    }
+}
+
 
 pub trait Shape: Sync {
     fn hit(&self, ray: &Ray, t0: f64, t1: f64) -> Option<HitInfo>;
     fn bounding_box(&self) -> Option<AABB>;
+    fn pdf_value(&self, _o: Vec3, _v: Vec3) -> f64 { 0.0 }
+    fn random(&self, _o: Vec3) -> Vec3 { Vec3::xaxis() }
 }
 
+pub struct ShapePdf {
+    pub shape: Box<dyn Shape>,
+    pub origin: Vec3,
+}
+impl ShapePdf {
+    pub fn new(shape: Box<dyn Shape>, origin: Vec3) -> Self {
+        Self { shape, origin }
+    }
+}
+impl Pdf for ShapePdf {
+    fn value(&self, _hit: &HitInfo, direction: Vec3) -> f64 {
+        self.shape.pdf_value(self.origin, direction)
+    }
+    fn generate(&self, _hit: &HitInfo) -> Vec3 {
+        self.shape.random(self.origin)
+    }
+}
 //法線逆転用
 pub struct FlipFace {
     pub shape: Box<dyn Shape>,
@@ -171,7 +240,7 @@ impl Shape for Rect {
         if x < self.x0 || x > self.x1 || y < self.y0 || y > self.y1 {
             return None;
         }
-
+//        if ray.d.dot(&axis)>0.0 {axis = -axis};
         Some(HitInfo::new(
             t,
             ray.at(t),
@@ -201,7 +270,28 @@ impl Shape for Rect {
         }
         Some(AABB { min, max })
     }
+    fn pdf_value(&self, o: Vec3, v: Vec3) -> f64 {
+        if let Some(hit) = self.hit(&Ray::new(o, v), EPS10, f64::MAX) {
+            let area = (self.x1 - self.x0) * (self.y1 - self.y0);
+            let distance_squared = hit.t.powi(2) * v.length();
+            let cosine = v.dot(&hit.n).abs() / v.length().sqrt();
+            distance_squared / (cosine * area)
+        } else {
+            0.0
+        }
+    }
+    fn random(&self, o: Vec3) -> Vec3 {
+        let rx=random();let ry=random();
+        let x = self.x0 + rx * (self.x1 - self.x0);
+        let y = self.y0 + ry * (self.y1 - self.y0);
+        match self.axis {
+            RectAxisType::XY => Vec3::new(x, y, self.k) - o,
+            RectAxisType::XZ => Vec3::new(x, self.k, y) - o,
+            RectAxisType::YZ => Vec3::new(self.k, x, y) - o,
+        }
+    }
 }
+
 
 pub struct RectAngle {
     p_min:Vec3,
@@ -241,8 +331,8 @@ impl Shape for RectAngle {
         self.shapes.hit(ray, t0, t1)
     }
     fn bounding_box(&self) -> Option<AABB> {
-        let min=self.p_min;
-        let max=self.p_max;
+        let min = self.p_min;
+        let max = self.p_max;
         Some(AABB { min, max })
     }
 }
