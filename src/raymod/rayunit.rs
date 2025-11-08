@@ -3,7 +3,7 @@
 use std::f64::consts::*;
 use std::sync::Arc;
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct Ray {
     pub o: Vec3,
     pub d: Vec3,
@@ -34,80 +34,11 @@ impl HitInfo {
 }
 
 
-pub trait Pdf {
-    fn value(&self, hit: &HitInfo, direction: Vec3) -> f64;
-    fn generate(&self, hit: &HitInfo) -> Vec3;
-}
-
-pub struct CosinePdf {}
-
-impl CosinePdf {
-    pub const fn new() -> Self {
-        Self {}
-    }
-}
-
-impl Pdf for CosinePdf {
-    fn value(&self, hit: &HitInfo, direction: Vec3) -> f64 {
-        let cosine = direction.norm().dot(&hit.n);
-        if cosine > 0.0 {
-            cosine * FRAC_1_PI
-        } else {
-            0.0
-        }
-    }
-    fn generate(&self, hit: &HitInfo) -> Vec3 {
-        ONB::new(hit.n).local(Vec3::random_cosine_direction())
-    }
-}
-
-pub struct MixturePdf {
-    pub pdfs: [Box<dyn Pdf>; 2],
-}
-impl MixturePdf {
-    pub fn new(pdf0: Box<dyn Pdf>, pdf1: Box<dyn Pdf>) -> Self {
-        Self { pdfs: [pdf0, pdf1] }
-    }
-}
-impl Pdf for MixturePdf {
-    fn value(&self, hit: &HitInfo, direction: Vec3) -> f64 {
-        let pdf0 = self.pdfs[0].value(&hit, direction);
-        let pdf1 = self.pdfs[1].value(&hit, direction);
-        0.5 * pdf0 + 0.5 * pdf1
-    }
-    fn generate(&self, hit: &HitInfo) -> Vec3 {
-        if random() < 0.5 {
-            self.pdfs[0].generate(hit)
-        } else {
-            self.pdfs[1].generate(hit)
-        }
-    }
-}
-
-
-pub trait Shape: Sync {
+pub trait Shape: Send + Sync {
     fn hit(&self, ray: &Ray, t0: f64, t1: f64) -> Option<HitInfo>;
     fn bounding_box(&self) -> Option<AABB>;
     fn pdf_value(&self, _o: Vec3, _v: Vec3) -> f64 { 0.0 }
     fn random(&self, _o: Vec3) -> Vec3 { Vec3::xaxis() }
-}
-
-pub struct ShapePdf {
-    pub shape: Box<dyn Shape>,
-    pub origin: Vec3,
-}
-impl ShapePdf {
-    pub fn new(shape: Box<dyn Shape>, origin: Vec3) -> Self {
-        Self { shape, origin }
-    }
-}
-impl Pdf for ShapePdf {
-    fn value(&self, _hit: &HitInfo, direction: Vec3) -> f64 {
-        self.shape.pdf_value(self.origin, direction)
-    }
-    fn generate(&self, _hit: &HitInfo) -> Vec3 {
-        self.shape.random(self.origin)
-    }
 }
 //法線逆転用
 pub struct FlipFace {

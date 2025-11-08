@@ -1,5 +1,87 @@
 use crate::raymod::*;
 pub use std::f64::consts::*;
+use std::sync::Arc;
+
+
+pub trait Pdf:Send + Sync {
+    fn value(&self, hit: &HitInfo, direction: Vec3) -> f64;
+    fn generate(&self, hit: &HitInfo) -> Vec3;
+}
+
+pub struct CosinePdf {}
+
+impl CosinePdf {
+    pub const fn new() -> Self {
+        Self {}
+    }
+}
+
+impl Pdf for CosinePdf {
+    fn value(&self, hit: &HitInfo, direction: Vec3) -> f64 {
+        let cosine = direction.norm().dot(&hit.n);
+        if cosine > 0.0 {
+            cosine * FRAC_1_PI
+        } else {
+            0.0
+        }
+    }
+    fn generate(&self, hit: &HitInfo) -> Vec3 {
+        ONB::new(hit.n).local(Vec3::random_cosine_direction())
+    }
+}
+
+pub struct MixturePdf {
+    pub pdfs: [Arc<dyn Pdf>; 2],
+}
+impl MixturePdf {
+    pub fn new(pdf0: Arc<dyn Pdf>, pdf1: Arc<dyn Pdf>) -> Self {
+        Self { pdfs: [pdf0, pdf1] }
+    }
+}
+impl Pdf for MixturePdf {
+    fn value(&self, hit: &HitInfo, direction: Vec3) -> f64 {
+        let pdf0 = self.pdfs[0].value(&hit, direction);
+        let pdf1 = self.pdfs[1].value(&hit, direction);
+        0.5 * pdf0 + 0.5 * pdf1
+    }
+    fn generate(&self, hit: &HitInfo) -> Vec3 {
+        if random() < 0.5 {
+            self.pdfs[0].generate(hit)
+        } else {
+            self.pdfs[1].generate(hit)
+        }
+    }
+}
+
+pub struct ShapePdf {
+    pub shape: Box<dyn Shape>,
+    pub origin: Vec3,
+}
+impl ShapePdf {
+    pub fn new(shape: Box<dyn Shape>, origin: Vec3) -> Self {
+        Self { shape, origin }
+    }
+}
+impl Pdf for ShapePdf {
+    fn value(&self, _hit: &HitInfo, direction: Vec3) -> f64 {
+        self.shape.pdf_value(self.origin, direction)
+    }
+    fn generate(&self, _hit: &HitInfo) -> Vec3 {
+        self.shape.random(self.origin)
+    }
+}
+
+pub struct ScatterInfo {
+    pub ray: Ray,
+    pub albedo: Color,
+    pub pdf:Option<Arc<dyn Pdf>>,
+}
+
+impl ScatterInfo {
+    pub fn new(ray: Ray, albedo: Vec3,pdf:Option<Arc<dyn Pdf>>) -> Self {
+        Self { ray, albedo, pdf }
+    }
+}
 
 #[allow(unused)]
 pub trait Material: Sync + Send {
@@ -120,33 +202,21 @@ impl Material for DiffuseLight {
     }
 }
 
-pub struct ScatterInfo {
-    pub ray: Ray,
-    pub albedo: Color,
-    pub pdf_value:f64,
-}
 
-impl ScatterInfo {
-    pub fn new(ray: Ray, albedo: Vec3,pdf_value:f64) -> Self {
-        Self { ray, albedo, pdf_value }
-    }
-}
 pub struct Lambertian {
     pub albedo: Box<dyn Texture>,
+    pub pdf:Arc<dyn Pdf>,
 }
 impl Lambertian {
     pub fn new(albedo: Box<dyn Texture>) -> Self {
-        Self { albedo }
+        Self { albedo,pdf:Arc::new(CosinePdf::new()) }
     }
 }
 
 impl Material for Lambertian {
     fn scatter(&self, ray: &Ray, hit: &HitInfo) -> Option<ScatterInfo> {
-        let direction = ONB::new(hit.n).local(Vec3::random_cosine_direction()) ;
-        let new_ray = Ray::new(hit.p, direction.norm() );
         let albedo = self.albedo.value(hit.u, hit.v, hit.p);
-        let pdf_value = new_ray.d.dot(&hit.n) * FRAC_1_PI;
-        Some(ScatterInfo::new(new_ray, albedo,pdf_value))
+        Some(ScatterInfo::new(*ray, albedo,Some(Arc::clone(&self.pdf))))
     }
     fn scattering_pdf(&self, ray: &Ray, hit: &HitInfo) -> f64 {
         ray.d.norm().dot(&hit.n).max(0.0) * FRAC_1_PI
@@ -169,7 +239,7 @@ impl Material for Metal {
         reflected = reflected + self.fuzz*Vec3::random_hemisphere() ;
         if reflected.dot(&hit.n) > 0.0 {
             let albedo = self.albedo.value(hit.u, hit.v, hit.p);
-            Some(ScatterInfo::new(Ray::new(hit.p, reflected), albedo,0.0))
+            Some(ScatterInfo::new(Ray::new(hit.p, reflected), albedo,None))
         } else {
             None
         }
@@ -210,14 +280,14 @@ impl Material for Dielectric {
                 return Some(ScatterInfo::new(
                     Ray::new(hit.p, refracted),
                     Vec3::new(1.0, 1.0, 1.0),
-                    0.0,
+                    None,
                 ));
             }
         }
         Some(ScatterInfo::new(
             Ray::new(hit.p, reflected),
             Vec3::new(1.0, 1.0, 1.0),
-            0.0,
+            None,
         ))
     }
 }
