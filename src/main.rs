@@ -9,37 +9,43 @@ use std::io::Write;
 
 
 fn ray_color(r: &Ray, world: &dyn Shape, depth: i64, background: Vec3) -> Vec3 {
-    if depth <= 0 {
+     if depth <= 0 {
         return Vec3::new(0.0, 0.0, 0.0);
-    }
+     }
+    let black=Box::new(ColorTexture::new(Vec3::zero()));
     let hit_info = world.hit(&r, EPS, f64::MAX);
     if let Some(hit) = hit_info {
         let emitted = hit.m.emitted(&r, &hit);
         let scatter_info = hit.m.scatter(r, &hit);
         if let Some(scatter) = scatter_info {
-            let pdf = MixturePdf::new(
-                Box::new(ShapePdf::new(
-                    Box::new(Rect::new(
-                                 213.0, 343.0, 227.0, 332.0, 554.0,RectAxisType::XZ,
-                                 Arc::new(Lambertian::new(Box::new(ColorTexture::new(Vec3::zero()))))
-                        )),
-                    hit.p,
-                )),
-                Box::new(CosinePdf::new()));
-            let new_ray = Ray::new(hit.p,pdf.generate(&hit));
-            let spdf_value = pdf.value(&hit,new_ray.d);
-            if spdf_value > 0.0 {
-                let pdf_value = hit.m.scattering_pdf(&new_ray, &hit);
-                let albedo = scatter.albedo * pdf_value;
+            if let Some(pdf)=scatter.pdf {
+                let pdf = MixturePdf::new(
+                    Arc::new(ShapePdf::new(
+                        Box::new(Rect::new(
+                            213.0, 343.0, 227.0, 332.0, 554.0,RectAxisType::XZ,
+                            Arc::new(Lambertian::new(black))
+                        )),hit.p,)
+                    ),
+                    Arc::clone(&pdf) );
+                let new_ray = Ray::new(hit.p,pdf.generate(&hit));
+                let spdf_value = pdf.value(&hit,new_ray.d);
+                if spdf_value > 0.0 {
+                    let pdf_value = hit.m.scattering_pdf(&new_ray, &hit);
+                    let albedo = scatter.albedo * pdf_value;
+                    emitted
+                        + albedo.mult(ray_color(&new_ray, world, depth-1, background)) /spdf_value
+
+                } else {
+                    emitted
+                }
+            }else{
                 emitted
-                    + albedo.mult(ray_color(&new_ray, world, depth-1, background)) /spdf_value
-            } else {
-                emitted
+                    + scatter.albedo.mult(ray_color(&scatter.ray, world, depth-1, background)) 
             }
         } else {
-            return emitted;
+            emitted
         }
-    } else {
+    } else { // hit=None
         return background;
     }
 }
@@ -65,7 +71,7 @@ fn main() {
             w = args.w;
             h = ((w as f64) / SQUARE_ASPECT) as usize;
      	    background=Vec3::new(0.0,0.0,0.0);
-            cam = world.cornellbox_scene();
+            cam = world.cornell_mirror_box_scene();
         }
         1 => {
             cam = world.simple_scene();
@@ -94,6 +100,12 @@ fn main() {
             w = args.w;
             h = ((w as f64) / SQUARE_ASPECT) as usize;
             cam = world.cornell_scene();
+            background=Vec3::zero();
+        }
+        8 =>{
+                        w = args.w;
+            h = ((w as f64) / SQUARE_ASPECT) as usize;
+            cam = world.cornell_mirror_box_scene();
             background=Vec3::zero();
         }
         _ => {
