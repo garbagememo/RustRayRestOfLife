@@ -54,11 +54,11 @@ impl Pdf for MixturePdf {
 }
 
 pub struct ShapePdf {
-    pub shape: Box<dyn Shape>,
+    pub shape: Arc<dyn Shape>,
     pub origin: Vec3,
 }
 impl ShapePdf {
-    pub fn new(shape: Box<dyn Shape>, origin: Vec3) -> Self {
+    pub fn new(shape: Arc<dyn Shape>, origin: Vec3) -> Self {
         Self { shape, origin }
     }
 }

@@ -62,7 +62,6 @@ impl Shape for FlipFace {
     }
 }
 
-
 pub struct Sphere {
     pub center: Vec3,
     pub radius: f64,
