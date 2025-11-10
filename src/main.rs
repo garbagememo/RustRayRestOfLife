@@ -15,15 +15,29 @@ fn main() {
 
     let samps: usize = args.s;
     let MAX_DEPTH: i64 = 32;
+
+    let mut scene: Box<dyn Scene>;
     
     let mut w: usize = args.w;
     let mut h: usize = ((w as f64) / WIDE_ASPECT) as usize;
-//---cornellbox
-    h=((w as f64)/SQUARE_ASPECT) as usize;
-    let mut scene =CornellBoxScene::new();
-    //* ----Random_scene
-     h=((w as f64)/WIDE_ASPECT) as usize;
-    let mut scene =RandomScene::new();
+
+   match args.m {
+        0 => {//デフォルトはゼロ
+            //---cornellbox
+            h=((w as f64)/SQUARE_ASPECT) as usize;
+            scene =Box::new( CornellBoxScene::new() );
+        }
+        1 => {
+            //----Random_scene
+            h=((w as f64)/WIDE_ASPECT) as usize;
+            scene = Box::new( RandomScene::new() );
+	    }
+        _ => {
+            //---cornellbox
+            h=((w as f64)/SQUARE_ASPECT) as usize;
+            scene =Box::new( CornellBoxScene::new() );
+        }
+    }
 
 
     let mut image = vec![Color::zero(); (w * h) as usize];
@@ -36,7 +50,7 @@ fn main() {
                     for _sx in 0..2 {
                         let u = (x as f64 + (_sx as f64 + random()) / 4.0) / (w as f64);
                         let v = (y as f64 + (_sy as f64 + random()) / 4.0) / (h as f64);
-                        let ray = scene.cam.get_ray(u, v);
+                        let ray = scene.get_ray(u, v);
                         r = r + scene.ray_color(&ray,MAX_DEPTH,)
                             / (samps as f64)
                             / 4.0;
