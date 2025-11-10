@@ -1,0 +1,54 @@
+// 共通のトレイトを定義（仮定）
+pub trait SceneTrait {}
+
+// 各シーン構造体がこのトレイトを実装している（仮定）
+pub struct Scene;
+impl SceneTrait for Scene {}
+pub struct CornellBoxScene;
+impl SceneTrait for CornellBoxScene {}
+impl CornellBoxScene {
+    pub fn new() -> Box<dyn SceneTrait> {
+        // ... 実際の初期化 ...
+        Box::new(CornellBoxScene {}) // 例
+    }
+}
+pub struct RandomScene;
+impl SceneTrait for RandomScene {}
+impl RandomScene {
+    pub fn new() -> Box<dyn SceneTrait> {
+        // ... 実際の初期化 ...
+        Box::new(RandomScene {}) // 例
+    }
+}
+// ここからが元のコードの修正部分
+
+// wとhを事前に宣言し、マッチ内で確実に初期化されるようにする
+let mut w: usize;
+let mut h: usize;
+
+// sceneの型をトレイトオブジェクト Box<dyn SceneTrait> に変更
+let mut scene: Box<dyn SceneTrait> = Scene::new(); 
+// もしくは、Scene::new() が Box<dyn SceneTrait> を返すように変更する。
+
+// ... (args や定数の定義は省略)
+
+match args.m {
+    0 => {
+        // scene = CornellBoxScene::new() が Box<dyn SceneTrait> を返す
+        scene = CornellBoxScene::new(); 
+        w = args.w;
+        h = ((w as f64) / SQUARE_ASPECT) as usize;
+    }
+    1 => {
+        // scene = RandomScene::new() が Box<dyn SceneTrait> を返す
+        scene = RandomScene::new();
+        w = args.w;
+        h = ((w as f64) / WIDE_ASPECT) as usize;
+    }
+    _ => {
+        // scene = CornellBoxScene::new() が Box<dyn SceneTrait> を返す
+        scene = CornellBoxScene::new();
+        w = args.w;
+        h = ((w as f64) / SQUARE_ASPECT) as usize;
+    }
+}

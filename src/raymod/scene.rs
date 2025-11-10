@@ -267,9 +267,9 @@ impl ShapeList {
 
 }
 
-pub trait Scene {
-    fn new()->Self;
+pub trait Scene : Send + Sync{
     fn ray_color(&self,r: &Ray,depth: i64,) -> Vec3;
+    fn get_ray(&self,u:f64,v:f64)->Ray;
 }
 
 pub struct RandomScene {
@@ -278,14 +278,20 @@ pub struct RandomScene {
     pub background:Vec3 ,
 }
 
-impl Scene for RandomScene {
-    fn new()->Self {
+impl RandomScene {
+    pub fn new()->Self {
         let mut world = ShapeList::new();
         let cam =world.random_scene();
         let background=Vec3::new(0.7,0.8,1.0);
         Self { cam,world,background } 
     }
-    
+}
+
+impl Scene for RandomScene {
+    fn get_ray(&self,u:f64,v:f64)->Ray {
+        self.cam.get_ray(u,v)
+    }
+  
     fn ray_color(&self,r: &Ray, depth: i64) -> Vec3 {
         if depth <= 0 {
             return Vec3::new(0.0, 0.0, 0.0);
@@ -318,8 +324,8 @@ pub struct CornellBoxScene {
     pub background:Vec3,
 }
 
-impl Scene for CornellBoxScene {
-    fn new() -> Self {
+impl CornellBoxScene{
+    pub fn new() -> Self {
         let mut world = ShapeList::new();
         let cam = world.cornell_mirror_box_scene();
         let light = Arc::new(Rect::new(
@@ -329,6 +335,13 @@ impl Scene for CornellBoxScene {
         let background=Vec3::zero();
         Self { cam,world,light,background } 
     }
+}
+
+impl Scene for CornellBoxScene {
+    fn get_ray(&self,u:f64,v:f64)->Ray {
+        self.cam.get_ray(u,v)
+    }
+    
     fn ray_color(&self,r: &Ray,depth: i64,) -> Vec3 {
         if depth <= 0 {
             return Vec3::new(0.0, 0.0, 0.0);
