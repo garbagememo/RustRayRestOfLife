@@ -13,24 +13,18 @@ fn main() {
     println!("{:?}", args);
     println!("sampling(use subpixel)={:?}",args.s*4);
 
+    let samps: usize = args.s;
+    let MAX_DEPTH: i64 = 32;
+    
     let mut w: usize = args.w;
     let mut h: usize = ((w as f64) / WIDE_ASPECT) as usize;
-    let samps: usize = args.s;
+//---cornellbox
+    h=((w as f64)/SQUARE_ASPECT) as usize;
+    let mut scene =CornellBoxScene::new();
+    //* ----Random_scene
+     h=((w as f64)/WIDE_ASPECT) as usize;
+    let mut scene =RandomScene::new();
 
-
-    let MAX_DEPTH: i64 = 32;
-
-    let mut world = ShapeList::new();
-    let mut background =Vec3::new(0.7,0.8,1.0);
-    //オリジナルはRayの関数だがとりあえず定数で
-
-    let mut Cornell=CornellBoxScene::new();
-    let cam =Cornell.cam;
-    
-    w = args.w;
-    h = ((w as f64) / SQUARE_ASPECT) as usize;
-    background=Vec3::new(0.0,0.0,0.0);
-    let cam = world.cornell_mirror_box_scene();
 
     let mut image = vec![Color::zero(); (w * h) as usize];
     let bands: Vec<(usize, &mut [Color])> = image.chunks_mut(w as usize).enumerate().collect();
@@ -42,8 +36,8 @@ fn main() {
                     for _sx in 0..2 {
                         let u = (x as f64 + (_sx as f64 + random()) / 4.0) / (w as f64);
                         let v = (y as f64 + (_sy as f64 + random()) / 4.0) / (h as f64);
-                        let ray = Cornell.cam.get_ray(u, v);
-                        r = r + Cornell.ray_color(&ray,MAX_DEPTH, background)
+                        let ray = scene.cam.get_ray(u, v);
+                        r = r + scene.ray_color(&ray,MAX_DEPTH,)
                             / (samps as f64)
                             / 4.0;
                     }
