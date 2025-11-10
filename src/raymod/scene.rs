@@ -180,25 +180,156 @@ impl ShapeList {
             dist_to_focus,
         );
     }
+    pub fn random_scene(&mut self) -> Camera {
+        self.push(Box::new(Sphere::new(
+            Vec3::new(0.0, -1000.0, 0.0),
+            1000.0,
+            Arc::new(Lambertian::new(Box::new(ColorTexture::new(Vec3::new(
+                0.5, 0.5, 0.5,
+            ))))),
+        )));
+
+        let mut box_list1: Vec<Box<dyn Shape>> = Vec::new();
+        for a in -11..11 {
+            for b in -11..11 {
+                let choose_mat = random();
+                let center = Vec3::new(a as f64 + 0.9 * random(), 0.2, b as f64 + 0.9 * random());
+                if (center - Vec3::new(4.0, 0.2, 0.0)).length().sqrt() > 0.9 {
+                    if choose_mat < 0.8 {
+                        // diffuse
+                        let albedo = Vec3::random().mult(Vec3::random());
+                        box_list1.push(Box::new(Sphere::new(
+                            center,
+                            0.2,
+                            Arc::new(Lambertian::new(Box::new(ColorTexture::new(albedo)))),
+                        )));
+                    } else if choose_mat < 0.95 {
+                        // Metal
+                        let fuzz = random_range(0.0, 0.5);
+                        let albedo = Vec3::vec3_random_range(0.5, 1.0);
+                        box_list1.push(Box::new(Sphere::new(
+                            center,
+                            0.2,
+                            Arc::new(Metal::new(Box::new(ColorTexture::new(albedo)), fuzz)),
+                        )));
+                    } else {
+                        // glass
+                        box_list1.push(Box::new(Sphere::new(
+                            center,
+                            0.2,
+                            Arc::new(Dielectric::new(1.5)),
+                        )));
+                    }
+                }
+            }
+        }
+        self.push(Box::new(BVH::new(box_list1)));
+
+        self.push(Box::new(Sphere::new(
+            Vec3::new(0.0, 1.0, 0.0),
+            1.0,
+            Arc::new(Dielectric::new(1.5)),
+        )));
+        self.push(Box::new(Sphere::new(
+            Vec3::new(-4.0, 1.0, 0.0),
+            1.0,
+            Arc::new(Lambertian::new(Box::new(ColorTexture::new(Vec3::new(
+                0.4, 0.2, 0.1,
+            ))))),
+        )));
+        self.push(Box::new(Sphere::new(
+            Vec3::new(4.0, 1.0, 0.0),
+            1.0,
+            Arc::new(Metal::new(
+                Box::new(ColorTexture::new(Vec3::new(0.7, 0.6, 0.5))),
+                0.0,
+            )),
+        )));
+
+        // Camera
+        // random_scene用カメラ
+        let lookfrom = Vec3::new(13.0, 2.0, 3.0);
+        let lookat = Vec3::new(0.0, 0.0, 0.0);
+        let vup = Vec3::new(0.0, 1.0, 0.0);
+        let dist_to_focus = (lookfrom - lookat).length().sqrt();
+        let aperture = 0.1;
+
+        return Camera::new(
+            lookfrom,
+            lookat,
+            vup,
+            20.0,
+            WIDE_ASPECT,
+            aperture,
+            dist_to_focus,
+        );
+    }
 
 }
+
+pub trait Scene {
+    fn new()->Self;
+    fn ray_color(&self,r: &Ray,depth: i64,) -> Vec3;
+}
+
+pub struct RandomScene {
+    pub cam:Camera,
+    pub world: ShapeList,
+    pub background:Vec3 ,
+}
+
+impl Scene for RandomScene {
+    fn new()->Self {
+        let mut world = ShapeList::new();
+        let cam =world.random_scene();
+        let background=Vec3::new(0.7,0.8,1.0);
+        Self { cam,world,background } 
+    }
+    
+    fn ray_color(&self,r: &Ray, depth: i64) -> Vec3 {
+        if depth <= 0 {
+            return Vec3::new(0.0, 0.0, 0.0);
+        }
+        let hit_info = self.world.hit(&r, EPS, f64::MAX);
+        if let Some(hit) = hit_info {
+            let emitted = hit.m.emitted(&r, &hit);
+            let scatter_info = hit.m.scatter(r, &hit);
+            if let Some(scatter) = scatter_info {
+                 if let Some(pdf)=scatter.pdf {
+                     let new_ray = Ray::new(hit.p,pdf.generate(&hit));
+                     emitted + scatter.albedo.mult(self.ray_color(&new_ray, depth - 1 ))
+                 }else{
+                     emitted + scatter.albedo.mult(self.ray_color(&scatter.ray, depth-1 )) 
+                 }
+            } else {
+                return emitted;
+            }
+        } else {
+            return self.background;
+        }
+    }
+}
+
+
 pub struct CornellBoxScene {
     pub cam:Camera,
     pub world: ShapeList,
     pub light:Arc<dyn Shape>,
+    pub background:Vec3,
 }
 
-impl CornellBoxScene {
-    pub fn new() -> Self{
+impl Scene for CornellBoxScene {
+    fn new() -> Self {
         let mut world = ShapeList::new();
         let cam = world.cornell_mirror_box_scene();
         let light = Arc::new(Rect::new(
                             213.0, 343.0, 227.0, 332.0, 554.0,RectAxisType::XZ,
                             Arc::new(Lambertian::new(Box::new( ColorTexture::new(Vec3::zero()) )))
-                        ));
-        Self { cam,world,light }
+        ));
+        let background=Vec3::zero();
+        Self { cam,world,light,background } 
     }
-    pub fn ray_color(&self,r: &Ray,depth: i64, background: Vec3) -> Vec3 {
+    fn ray_color(&self,r: &Ray,depth: i64,) -> Vec3 {
         if depth <= 0 {
             return Vec3::new(0.0, 0.0, 0.0);
         }
@@ -217,20 +348,20 @@ impl CornellBoxScene {
                         let pdf_value = hit.m.scattering_pdf(&new_ray, &hit);
                         let albedo = scatter.albedo * pdf_value;
                         emitted
-                            + albedo.mult(self.ray_color(&new_ray, depth-1, background)) /spdf_value
+                            + albedo.mult(self.ray_color(&new_ray, depth-1,)) /spdf_value
 
                     } else {
                         emitted
                     }
                 }else{
                     emitted
-                        + scatter.albedo.mult(self.ray_color(&scatter.ray, depth-1, background)) 
+                        + scatter.albedo.mult(self.ray_color(&scatter.ray, depth-1 )) 
                 }
             } else {
                 emitted
             }
         } else { // hit=None
-            return background;
+            return self.background;
         }
     }
 
