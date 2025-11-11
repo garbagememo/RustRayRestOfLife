@@ -1,4 +1,3 @@
-
 mod bvh;
 mod material;
 mod optarg;

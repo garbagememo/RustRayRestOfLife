@@ -90,6 +90,15 @@ impl Vec3 {
         let r2sqrt = r2.sqrt();
         Self::new(x * r2sqrt, y * r2sqrt, z)
     }
+    pub fn random_to_sphere(radius: f64, distance_squared: f64) -> Self {
+        let rx=random();let ry=random();
+        let rr = radius.powi(2).min(distance_squared);
+        let cos_theta_max = (1.0 - rr * distance_squared.recip()).sqrt();
+        let z = 1.0 - ry * (1.0 - cos_theta_max);
+        let sqrtz = (1.0 - z.powi(2)).sqrt();
+        let (x, y) = (PI2 * rx).sin_cos();
+        Self::new(x * sqrtz, y * sqrtz, z)
+    }
     
     pub fn reflect(&self, normal: Vec3) -> Vec3 {
         *self - normal * 2.0 * self.dot(&normal)

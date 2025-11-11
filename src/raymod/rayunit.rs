@@ -3,6 +3,8 @@
 use std::f64::consts::*;
 use std::sync::Arc;
 
+const PI2:f64 = PI*2.0;
+
 #[derive(Debug, Clone, Copy)]
 pub struct Ray {
     pub o: Vec3,
@@ -115,6 +117,23 @@ impl Shape for Sphere {
         let min = self.center - radius;
         let max = self.center + radius;
         Some(AABB { min, max })
+    }
+
+    fn pdf_value(&self, o: Vec3, v: Vec3) -> f64 {
+        if let Some(_) = self.hit(&Ray::new(o, v), EPS10, f64::MAX) {
+            let dd = (self.center - o).length();
+            let rr = self.radius.powi(2).min(dd);
+            let cos_theta_max = (1.0 - rr * dd.recip()).sqrt();
+            let solid_angle = PI2 * (1.0 - cos_theta_max);
+            solid_angle.recip()
+        } else {
+            0.0
+        }
+    }
+    fn random(&self, o: Vec3) -> Vec3 {
+        let direction = self.center - o;
+        let distance_squared = direction.length();
+        ONB::new(direction).local(Vec3::random_to_sphere(self.radius, distance_squared))
     }
 }
 
@@ -309,5 +328,15 @@ impl Shape for ShapeList {
             }
             _ => None,
         }
+    }
+    fn pdf_value(&self, o: Vec3, v: Vec3) -> f64 {
+        if self.objects.is_empty() { panic!(); }
+        let weight = 1.0 / self.objects.len() as f64;
+        self.objects.iter().fold(0.0,|acc, s| acc + weight * s.pdf_value(o, v))
+    }
+    fn random(&self, o: Vec3) -> Vec3 {
+        if self.objects.is_empty() { panic!(); }
+        let index = (random() * self.objects.len() as f64).floor() as usize;
+        self.objects[index].random(o)
     }
 }
