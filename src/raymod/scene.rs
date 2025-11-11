@@ -515,38 +515,59 @@ impl Scene for CornellDielectricScene {
         self.cam.get_ray(u,v)
     }
     
-    fn ray_color(&self,r: &Ray,depth: i64,) -> Vec3 {
-        if depth <= 0 { 
+    fn ray_color(&self, r: &Ray, depth: i64) -> Vec3 {
+        // 1. 再帰深度のチェック
+        if depth <= 0 {
             return self.background;
         }
-        let hit_info = self.world.hit(&r, EPS, f64::MAX);
-        if let Some(hit) = hit_info {
-            let emitted = hit.m.emitted(&r, &hit);
-            let scatter_info = hit.m.scatter(r, &hit);
-            if let Some(scatter) = scatter_info {
-                if let Some(pdf)=scatter.pdf {
-                    let shape_pdf = Arc::new(ShapePdf::new(Arc::clone(&self.light), hit.p));
-                    let pdf = MixturePdf::new(shape_pdf, Arc::clone(&pdf) );
-                    let new_ray = Ray::new(hit.p,pdf.generate(&hit));
-                    let spdf_value = pdf.value(&hit,new_ray.d);
-                    if spdf_value > 0.0 {
-                        let pdf_value = hit.m.scattering_pdf(&new_ray, &hit);
-                        let albedo = scatter.albedo * pdf_value;
-                        emitted + albedo.mult(self.ray_color(&new_ray, depth-1,)) /spdf_value
 
-                    } else {
-                        emitted
-                    }
-                }else{
-                    emitted + scatter.albedo.mult(self.ray_color(&scatter.ray, depth-1 )) 
-                }
-            } else {
-                emitted
+        // 2. レイの衝突判定
+        let hit = match self.world.hit(r, EPS, f64::MAX) {
+            Some(h) => h,
+            None => return self.background, // 衝突しない場合は背景色を返す
+        };
+
+        // 3. 放射成分の計算
+        let emitted = hit.m.emitted(r, &hit);
+
+        // 4. 散乱情報の取得
+        let scatter = match hit.m.scatter(r, &hit) {
+            Some(s) => s,
+            None => return emitted, // 散乱しない場合は放射成分のみ返す (吸収など)
+        };
+
+        // 5. PDFが存在しない場合 (PDFがない基本的な散乱)
+        let pdf_ref = match scatter.pdf {
+            Some(ref pdf) => pdf,
+            None => {
+                // Lambertianなどのシンプルな散乱モデルの処理
+                return emitted + scatter.albedo.mult(self.ray_color(&scatter.ray, depth - 1));
             }
-        } else { // hit=None
-            return self.background;
+        };
+
+        // 6. PDFが存在する場合 (MIS/Importance Sampling)
+        
+        // a. 混合PDF (Shape + Material PDF) の構築
+        let shape_pdf = Arc::new(ShapePdf::new(Arc::clone(&self.light), hit.p));
+        let pdf = MixturePdf::new(shape_pdf, Arc::clone(pdf_ref));
+        
+        // b. 新しいレイの生成
+        let new_ray = Ray::new(hit.p, pdf.generate(&hit));
+        
+        // c. PDF値の評価
+        let spdf_value = pdf.value(&hit, new_ray.d);
+
+        // d. 最終的な色の計算
+        if spdf_value > 0.0 {
+            let pdf_value = hit.m.scattering_pdf(&new_ray, &hit);
+            let albedo = scatter.albedo * pdf_value;
+            
+            // 重要な再帰呼び出し部分
+            return emitted + albedo.mult(self.ray_color(&new_ray, depth - 1)) / spdf_value;
+        } else {
+            // PDF値が0以下の場合は放射成分のみ
+            return emitted;
         }
     }
-
 }
 
