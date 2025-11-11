@@ -25,13 +25,23 @@ fn main() {
         0 => {//デフォルトはゼロ
             //---cornellbox
             h=((w as f64)/SQUARE_ASPECT) as usize;
-            scene =Box::new( CornellBoxScene::new() );
+            scene =Box::new( CornellDielectricScene::new() );
         }
         1 => {
             //----Random_scene
             h=((w as f64)/WIDE_ASPECT) as usize;
             scene = Box::new( RandomScene::new() );
 	    }
+        2 => {
+            //---cornellbox
+            h=((w as f64)/SQUARE_ASPECT) as usize;
+            scene =Box::new( CornellBoxScene::new() );
+        }
+        3 => {
+            //---cornellbox
+            h=((w as f64)/SQUARE_ASPECT) as usize;
+            scene =Box::new( CornellDielectricScene::new() );
+        }
         _ => {
             //---cornellbox
             h=((w as f64)/SQUARE_ASPECT) as usize;
